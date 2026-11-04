@@ -55,6 +55,17 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-aop</artifactId>
     </dependency>
+    <!-- Prevision IA (extension 9C) : inférence ONNX via DJL (CDC chapitre 18) -->
+    <dependency>
+      <groupId>ai.djl</groupId>
+      <artifactId>api</artifactId>
+      <version>${djl.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>ai.djl.onnxruntime</groupId>
+      <artifactId>onnxruntime-engine</artifactId>
+      <version>${djl.version}</version>
+    </dependency>
     <dependency>
       <groupId>io.github.resilience4j</groupId>
       <artifactId>resilience4j-spring-boot3</artifactId>

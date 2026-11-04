@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PERT interactif — SmartEnergy Hub</title>
+<style>
+:root{font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;color:#e8edf5;background:#10151f}*{box-sizing:border-box}body{margin:0}header{padding:18px 22px;background:#171f2d;border-bottom:1px solid #303b4d}h1{font-size:22px;margin:0 0 6px}p{margin:0;color:#aebbd0;font-size:13px}.toolbar{display:flex;gap:8px;flex-wrap:wrap;padding:12px 18px;background:#121a27;align-items:center}button{border:1px solid #46546b;background:#202c3e;color:#edf3ff;border-radius:8px;padding:8px 12px;cursor:pointer}button:hover{background:#2c3c54}.hint{margin-left:auto;color:#9eacc1;font-size:12px}#viewport{height:calc(100vh - 145px);min-height:600px;overflow:auto;background-color:#0d131d;background-image:radial-gradient(#273247 1px,transparent 1px);background-size:20px 20px}svg{display:block;min-width:2300px;min-height:1250px;touch-action:none}.lane{fill:#131c2a;stroke:#27364b;stroke-width:1}.laneTitle{fill:#dbe7f8;font-size:17px;font-weight:800}.phaseLine{stroke:#33435a;stroke-dasharray:5 7}.phaseLabel{fill:#91a4bf;font-size:13px;font-weight:700}.edge{stroke:#71829b;stroke-width:1.8;fill:none;opacity:.95}.edge.dev-a{stroke:#38bdf8}.edge.dev-b{stroke:#c084fc}.edge.shared{stroke:#94a3b8;stroke-dasharray:5 4}.node{cursor:grab}.node:active{cursor:grabbing}.node rect.card{stroke-width:1.6;rx:10}.node.dev-a rect.card{fill:#102f43;stroke:#38bdf8}.node.dev-b rect.card{fill:#2b1d40;stroke:#c084fc}.node.shared rect.card{fill:#263242;stroke:#94a3b8}.node:hover rect.card{stroke:#facc15;stroke-width:2.5}.node text{pointer-events:none;fill:#f0f5fc;font-size:12px}.node .id{font-size:12px;font-weight:800;fill:#e2e8f0}.node .time{font-size:11px;fill:#aebbd0}.node .stepBadge{font-size:11px;font-weight:900}.node.dev-a .stepBadge{fill:#7dd3fc}.node.dev-b .stepBadge{fill:#d8b4fe}.node.shared .stepBadge{fill:#cbd5e1}.legend{display:flex;gap:16px;align-items:center;font-size:12px;color:#b6c2d4}.dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px}.dot.a{background:#102f43;border:1px solid #38bdf8}.dot.b{background:#2b1d40;border:1px solid #c084fc}.dot.shared{background:#263242;border:1px solid #94a3b8}#details{padding:8px 18px;color:#aebbd0;font-size:12px;background:#111925;border-top:1px solid #28364a;min-height:34px}.selected rect.card{stroke:#facc15!important;stroke-width:3!important}
+</style>
+</head>
+<body>
+<header><h1>PERT interactif — SmartEnergy Hub</h1><p>Organisation en colonnes Kanban par étape de dépendance. Les cartes sont déplaçables ; les flèches indiquent qui attend quelle tâche.</p></header>
+<div class="toolbar"><button id="reset">Réinitialiser la disposition</button><button id="labels">Afficher/masquer les durées</button><div class="legend"><span><i class="dot a"></i>Dev A — Flux & stockage</span><span><i class="dot b"></i>Dev B — Analytics & lecture</span><span><i class="dot shared"></i>Tâche commune</span></div><span class="hint">Astuce : zoome avec Ctrl + molette ou utilise les barres de défilement.</span></div>
+<div id="viewport"><svg id="chart" viewBox="0 0 2500 1450" xmlns="http://www.w3.org/2000/svg"><defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#71829b"/></marker><marker id="arrowA" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#38bdf8"/></marker><marker id="arrowB" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#c084fc"/></marker></defs><g id="background"></g><g id="edges"></g><g id="nodes"></g></svg></div><div id="details">Clique sur une tâche pour afficher ses détails. Tu peux déplacer les blocs ; les flèches suivent automatiquement.</div>
+<script>
+const tasks=[
+{id:'T0',name:'Kick-off commun',pred:[],te:2,dev:'A + B',x:45,y:450,critical:true,desc:'Build vert, infrastructure healthy, branches et définition of done.'},
+{id:'S1',name:'AbstractStreamConsumer',pred:['T0'],te:10.3,dev:'A',x:220,y:250,critical:false,desc:'Consumer Redis : lecture par groupe, ACK, XAUTOCLAIM et DLQ. À livrer en S1a puis S1b.'},
+{id:'D1',name:'Entités Cassandra',pred:['T0'],te:4,dev:'A',x:220,y:440,critical:false,desc:'Modèles Key, ByDay et Latest.'},
+{id:'D2',name:'CassandraMeasurementWriter',pred:['D1'],te:5.2,dev:'A',x:390,y:440,critical:false,desc:'Écriture idempotente et gestion des valeurs nulles.'},
+{id:'D3',name:'StorageStreamConsumer',pred:['S1','D2'],te:3,dev:'A',x:560,y:330,critical:false,desc:'Relie le flux Redis au stockage Cassandra.'},
+{id:'C1',name:'MeasurementPublisher',pred:['T0'],te:3.2,dev:'A',x:220,y:610,critical:false,desc:'Publication dans Redis via XADD et réponse 503 en cas d’indisponibilité.'},
+{id:'C2',name:'Validation + Controller',pred:['C1'],te:6.2,dev:'A',x:390,y:610,critical:false,desc:'Validation des mesures et réponses HTTP 202, 400 ou 503.'},
+{id:'C3',name:'BodySizeLimitFilter',pred:['T0'],te:1.7,dev:'A',x:220,y:770,critical:false,desc:'Limite la taille des requêtes ; réponse HTTP 413.'},
+{id:'S2',name:'StreamLagMetrics',pred:['S1'],te:3.2,dev:'A',x:390,y:250,critical:false,desc:'Mesure le retard du stream Redis.'},
+{id:'D6a',name:'Test stockage — écriture',pred:['D3'],te:5.2,dev:'A',x:730,y:330,critical:false,desc:'StorageIntegrationTest : scénarios 5, 6 et 8.'},
+{id:'C4',name:'Test intégration collector',pred:['C2','C3'],te:5.2,dev:'A',x:560,y:650,critical:false,desc:'CollectorIntegrationTest : scénarios 1, 2, 9 et doublon.'},
+{id:'X3a',name:'E2E — pannes',pred:['X2'],te:4,dev:'A',x:1260,y:340,critical:false,desc:'Tests end-to-end des scénarios 5, 6, 7, 9 et 10.'},
+{id:'X4',name:'Performance et charge',pred:['X2','S2'],te:5.2,dev:'A',x:1430,y:340,critical:false,desc:'Cible : 200 messages/s ; mesurer latence et lag.'},
+{id:'X5',name:'Sécurité + configuration',pred:['X2'],te:3.2,dev:'A',x:1430,y:500,critical:false,desc:'Note sécurité, .env.example et vérification des ports.'},
+{id:'X6a',name:'Rapport + démo — flux',pred:['X3a','X3b','D6a','C4'],te:3.2,dev:'A',x:1640,y:450,critical:true,desc:'Rédaction de la partie écriture et stockage, avec démonstration.'},
+{id:'N1',name:'AnalyticsRules + tests',pred:['T0'],te:7,dev:'B',x:220,y:900,critical:true,desc:'Règles énergie, seuils et calculs Welford.'},
+{id:'N2',name:'AggregateWriter',pred:['N1'],te:7.2,dev:'B',x:390,y:900,critical:true,desc:'Upserts atomiques des agrégats et anomalies Mongo.'},
+{id:'N3',name:'AnalyticsStreamConsumer',pred:['S1','N2'],te:5.2,dev:'B',x:560,y:900,critical:false,desc:'Déduplication, application des règles et ACK du stream.'},
+{id:'D4',name:'HistoryCursor + QueryService',pred:['D1'],te:8.2,dev:'B',x:730,y:650,critical:false,desc:'Pagination et consultation de l’historique Cassandra.'},
+{id:'D5',name:'MeasurementQueryController',pred:['D4'],te:3,dev:'B',x:900,y:650,critical:false,desc:'Routes GET /{id} et /latest.'},
+{id:'X1',name:'Test sensor-service',pred:['T0'],te:3.2,dev:'B',x:390,y:1020,critical:false,desc:'Test d’intégration du service capteur avec MongoDB.'},
+{id:'X2',name:'Compose complet — M1',pred:['C2','D3','N3'],te:4.2,dev:'B',x:900,y:900,critical:false,desc:'Jalon M1 : simulateur → collector → Redis → Cassandra et Mongo.'},
+{id:'N4',name:'AnalyticsQueryService',pred:['N2'],te:7,dev:'B',x:730,y:900,critical:true,desc:'Service de consultation des agrégats analytiques.'},
+{id:'N5',name:'AnalyticsController + Swagger',pred:['N4'],te:4,dev:'B',x:900,y:900,critical:true,desc:'Routes analytiques, alias daily-summary et documentation OpenAPI.'},
+{id:'N6',name:'AnalyticsIntegrationTest',pred:['N3','N5'],te:8.2,dev:'B',x:1080,y:900,critical:true,desc:'Tests d’intégration des scénarios 4, 8 et 11.'},
+{id:'D6b',name:'Test stockage — lecture',pred:['D5','D2'],te:3.2,dev:'B',x:1080,y:650,critical:false,desc:'StorageIntegrationTest : scénario 3.'},
+{id:'X3b',name:'E2E + preuves',pred:['X2','D5','N5'],te:3.7,dev:'B',x:1260,y:780,critical:false,desc:'E2E scénarios 1, 2, 3, 4, 8 et 11 ; preuves dans docs/tests.md.'},
+{id:'X6b',name:'Rapport + démo — analytics',pred:['X3a','X3b','N6','D6b'],te:3.2,dev:'B',x:1640,y:800,critical:true,desc:'Partie analytics et recette du rapport final.'}
+];
+const svg=document.querySelector('#chart'),bg=document.querySelector('#background'),eg=document.querySelector('#edges'),ng=document.querySelector('#nodes');let showTimes=true,drag=null;
+const CARD_W=205,CARD_H=88,COL_W=270,START_X=35,START_Y=155,LANE_A_Y=250,LANE_B_Y=790;
+const originals=Object.fromEntries(tasks.map(t=>[t.id,{x:t.x,y:t.y}]));
+function el(tag,attrs={},parent){const e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v] of Object.entries(attrs))e.setAttribute(k,v);if(parent)parent.appendChild(e);return e}
+function devClass(dev){return dev==='A'?'dev-a':dev==='B'?'dev-b':'shared'}
+// Niveau = première étape à laquelle la tâche peut démarrer selon ses prédécesseurs.
+const byId=Object.fromEntries(tasks.map(t=>[t.id,t]));
+function getLevel(t,visiting=new Set()){if(t._level!==undefined)return t._level;if(visiting.has(t.id))return 0;visiting.add(t.id);t._level=t.pred.length?Math.max(...t.pred.map(id=>byId[id]?getLevel(byId[id],visiting)+1:1)):0;visiting.delete(t.id);return t._level}
+tasks.forEach(t=>{delete t._level});tasks.forEach(t=>getLevel(t));
+// Disposition initiale en colonnes d'étapes et en couloirs par développeur.
+const grouped={};for(const t of tasks){const key=t.level??t._level;const lane=t.dev==='B'?'B':t.dev==='A'?'A':'S';const k=key+'-'+lane;(grouped[k]??=[]).push(t)}
+for(const t of tasks){const level=t._level,lane=t.dev==='B'?'B':t.dev==='A'?'A':'S';const peers=grouped[level+'-'+lane]||[];const idx=peers.indexOf(t);t.x=START_X+level*COL_W;t.y=lane==='S'?START_Y-35:lane==='A'?LANE_A_Y+idx*112:LANE_B_Y+idx*112;}
+const initial=Object.fromEntries(tasks.map(t=>[t.id,{x:t.x,y:t.y}]));
+function drawBg(){bg.innerHTML='';const maxLevel=Math.max(...tasks.map(t=>t._level));el('rect',{x:20,y:25,width:2460,height:1380,rx:14,class:'lane'},bg);el('text',{x:38,y:58,class:'laneTitle'},bg).textContent='TABLEAU PERT / KANBAN — colonnes = étapes de dépendance';
+for(let i=0;i<=maxLevel;i++){const x=START_X+i*COL_W-10;el('rect',{x,y:82,width:COL_W-12,height:1290,rx:9,fill:i%2?'#111a27':'#151f2e',stroke:'#28384e'},bg);el('text',{x:x+14,y:108,class:'phaseLabel'},bg).textContent='ÉTAPE '+i;el('text',{x:x+14,y:128,class:'phaseLabel'},bg).textContent=i===0?'Démarrage':`Après l’étape ${i-1}`;}
+for(const [y,title,color] of [[180,'COMMUN','#94a3b8'],[215,'DEV A — Flux & stockage','#38bdf8'],[755,'DEV B — Analytics & lecture','#c084fc']]){el('text',{x:38,y,class:'laneTitle'},bg).textContent=title;el('line',{x1:30,y1:y+15,x2:2470,y2:y+15,stroke:color,'stroke-opacity':.35,'stroke-width':1.4},bg)}
+}
+function drawEdges(){eg.innerHTML='';for(const t of tasks){for(const pid of t.pred){const p=byId[pid];if(!p)continue;const x1=p.x+CARD_W,y1=p.y+CARD_H/2,x2=t.x,y2=t.y+CARD_H/2;const bend=Math.max(35,Math.abs(x2-x1)*.45);const dir=x2>=x1?1:-1;const cls=devClass(t.dev);const marker=cls==='dev-a'?'url(#arrowA)':cls==='dev-b'?'url(#arrowB)':'url(#arrow)';el('path',{d:`M ${x1} ${y1} C ${x1+bend*dir} ${y1}, ${x2-bend*dir} ${y2}, ${x2} ${y2}`,class:'edge '+cls,'marker-end':marker},eg);}}}
+function drawNodes(){ng.innerHTML='';for(const t of tasks){const g=el('g',{class:'node '+devClass(t.dev),transform:`translate(${t.x},${t.y})`,tabindex:0},ng);g.dataset.id=t.id;el('rect',{width:CARD_W,height:CARD_H,class:'card'},g);el('text',{x:12,y:20,class:'id'},g).textContent=t.id;const badge=el('text',{x:CARD_W-12,y:20,class:'stepBadge','text-anchor':'end'},g);badge.textContent='ÉTAPE '+t._level;el('text',{x:12,y:42},g).textContent=t.name.length>27?t.name.slice(0,26)+'…':t.name;if(showTimes)el('text',{x:12,y:63,class:'time'},g).textContent=`TE : ${String(t.te).replace('.',',')} h`;
+const predText=t.pred.length?`Attend : ${t.pred.join(', ')}`:'Prête au démarrage';el('text',{x:12,y:78,class:'time'},g).textContent=predText.length>31?predText.slice(0,30)+'…':predText;
+g.addEventListener('pointerdown',e=>{if(e.button!==0)return;drag={id:t.id,startX:e.clientX,startY:e.clientY,x:t.x,y:t.y};g.setPointerCapture(e.pointerId);e.stopPropagation()});g.addEventListener('pointermove',e=>{if(!drag||drag.id!==t.id)return;const rect=svg.getBoundingClientRect(),scale=rect.width/2500;t.x=Math.max(20,Math.min(2260,drag.x+(e.clientX-drag.startX)/scale));t.y=Math.max(130,Math.min(1290,drag.y+(e.clientY-drag.startY)/scale));g.setAttribute('transform',`translate(${t.x},${t.y})`);drawEdges()});g.addEventListener('pointerup',()=>{drag=null});g.addEventListener('pointercancel',()=>{drag=null});g.addEventListener('click',()=>{document.querySelectorAll('.node').forEach(n=>n.classList.remove('selected'));g.classList.add('selected');document.querySelector('#details').textContent=`${t.id} — ${t.name} | Dev : ${t.dev} | Étape : ${t._level} | Durée estimée : ${t.te} h | Prédécesseurs : ${t.pred.join(', ')||'aucun'}. ${t.desc}`});}}
+function render(){drawBg();drawEdges();drawNodes()}render();
+document.querySelector('#reset').onclick=()=>{for(const t of tasks)Object.assign(t,initial[t.id]);render()};document.querySelector('#labels').onclick=()=>{showTimes=!showTimes;render()};
+</script>
+</body></html>

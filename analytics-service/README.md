@@ -26,12 +26,16 @@ Application, propriétés, `Clock`, client REST `SensorClient` (cache Redis 60 s
 **seuil par défaut**, ne lève jamais d'exception), documents Mongo (records), `application.yml`, Resilience4j.
 
 ## À faire (dans l'ordre)
-1. `rules/AnalyticsRules` + `AnalyticsRulesTest` — **commencer ici** (fonctions pures, jeu de test de référence dans l'en-tête)
-2. `service/AggregateWriter` — upserts atomiques (`$inc`, `$min`, `$max`, `$setOnInsert`), anomalies idempotentes
-3. `stream/AnalyticsStreamConsumer` — dédup (vérifier avant, marquer après), règles, agrégats
-4. `service/AnalyticsQueryService`, `web/AnalyticsController` (étape 8)
-5. `AnalyticsIntegrationTest` — scénarios 4, 8, 11
-6. *(extension)* `forecast/ForecastService` + `ml/`
+1. ~~`rules/AnalyticsRules` + `AnalyticsRulesTest`~~ ✅ formules (2)/(3)/(4) pures + 8 tests de référence (étape 9)
+2. ~~`service/AggregateWriter`~~ ✅ micro-batch D-14 (`$inc`/`$min`/`$max`/`$setOnInsert`), anomalies idempotentes `_id` déterministe (étape 9)
+3. ~~`stream/AnalyticsStreamConsumer`~~ ✅ dédup (vérifier avant, marquer après), seuil 1×/capteur, tri des timestamps, métrique (étape 9)
+4. ~~`service/AnalyticsQueryService`, `web/AnalyticsController`~~ ✅ routes de lecture + alias D-17 + 501 forecast (étape 8) — *les agrégats sont désormais écrits par l'étape 9 : `NO_DATA` seulement si le capteur n'a aucune mesure*
+5. ~~`AnalyticsIntegrationTest`~~ ✅ scénarios 4, 8, 11 (écritures via consumer, étape 9 ; lectures couvertes par `AnalyticsQueryIntegrationTest`, étape 8)
+6. *(extension)* `forecast/ForecastService` : ✅ flag + 501 fait (étape 8) ; baseline puis `ml/` = étape 9C — démarche dans `docs/forecast-niveau-c.md`
+
+**Critère CDC rempli** : service d'analyse avec les indicateurs obligatoires (count, moyenne, min/max,
+énergie, dépassements, anomalies) + explication des limites (Welford cumulé, seuil strict, biais 2 s
+de l'énergie) — preuves `preuves/tests/resultats-2026-10-30-analytics-etape9ab.md`.
 
 ## Pièges
 - Traiter les mesures d'un lot **dans l'ordre des timestamps**.

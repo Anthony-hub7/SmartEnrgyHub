@@ -58,13 +58,35 @@ public class SimulatorRunner implements ApplicationRunner {
         Map<String, Map<String, Object>> last = new HashMap<>();
         Random chaos = new Random(p.seed() + 9999);
 
-        log.info("Simulation : {} capteur(s), pas {}, duree {}, cible {}", ids.size(), p.interval(), p.duration(), p.targetUrl());
+        // Mode backfill (extension 9C) : horloge virtuelle couvrant [now - backfillDays, now],
+        // avancant de `interval` par tick, envoyee aussi vite que `backfillPace` le permet.
+        boolean backfill = p.backfillDays() > 0;
         long stepNanos = p.interval().toNanos();
+        if (backfill && stepNanos <= 0) {
+            log.error("Backfill invalide : interval doit etre strictement positif (recu {})", p.interval());
+            return;
+        }
+        Instant virtualStart = backfill ? Instant.now().minus(p.backfillDays(), ChronoUnit.DAYS) : null;
+        long totalTicks = backfill
+                ? Math.max(1, (p.backfillDays() * 86_400_000_000_000L) / stepNanos) // jours en ns / pas
+                : Long.MAX_VALUE;
+
+        log.info("Simulation : {} capteur(s), pas {}, {}, cible {}", ids.size(), p.interval(),
+                backfill ? "backfill " + p.backfillDays() + " jours @ " + p.backfillPace() + " ticks/s (horloge virtuelle)"
+                         : "duree " + p.duration(),
+                p.targetUrl());
         long start = System.nanoTime();
         long tick = 0;
         while (true) {
-            double elapsed = (System.nanoTime() - start) / 1e9;
-            if (!p.duration().isZero() && elapsed >= p.duration().toSeconds()) break;
+            if (backfill) {
+                if (tick >= totalTicks) break;
+            } else if (!p.duration().isZero() && (System.nanoTime() - start) / 1e9 >= p.duration().toSeconds()) {
+                break;
+            }
+            long tickStart = System.nanoTime();
+            // elapsed : temps VIRTUEL depuis le debut de la simulation ( coherent avec le timestamp
+            // envoye ) ; en mode reel, le temps mur depuis le demarrage.
+            double elapsed = backfill ? tick * stepNanos / 1e9 : (tickStart - start) / 1e9;
 
             for (int i = 0; i < ids.size(); i++) {
                 String id = ids.get(i);
@@ -79,8 +101,11 @@ public class SimulatorRunner implements ApplicationRunner {
                 double voltage = Math.max(0.0, round3(p.voltageBase() + rnd[i].nextGaussian() * 1.5));
                 double temperature = round3(p.temperatureBase() + rnd[i].nextGaussian() * 0.5);
 
-                EnergyMeasurementRequest m = new EnergyMeasurementRequest(id,
-                        Instant.now().truncatedTo(ChronoUnit.MILLIS), power, voltage, temperature, null, null, null);
+                Instant timestamp = backfill
+                        ? virtualStart.plusNanos(tick * stepNanos)
+                        : Instant.now().truncatedTo(ChronoUnit.MILLIS);
+                EnergyMeasurementRequest m = new EnergyMeasurementRequest(id, timestamp, power, voltage, temperature,
+                        null, null, null);
                 Map<String, Object> body = toBody(m);
                 if (chaos.nextDouble() < p.invalidRate()) corrupt(body, chaos);
                 send(body);
@@ -88,7 +113,9 @@ public class SimulatorRunner implements ApplicationRunner {
                 last.put(id, body);
             }
             tick++;
-            long wait = start + tick * stepNanos - System.nanoTime();
+            long wait = backfill
+                    ? (long) (1_000_000_000.0 / p.backfillPace()) - (System.nanoTime() - tickStart) // rythme d'envoi
+                    : start + tick * stepNanos - System.nanoTime();                                  // aligne sur le pas
             if (wait > 0) Thread.sleep(wait / 1_000_000, (int) (wait % 1_000_000));
         }
         log.info("Resume : envoyees={} acceptees(202)={} rejetees(4xx)={} erreurs={}",

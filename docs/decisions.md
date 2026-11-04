@@ -24,3 +24,4 @@ Version complète avec alternatives écartées : cahier des charges dans Notion 
 | D-18 | Prévision : baseline puis ONNX (entraînement Python, inférence Java) | Un modèle doit battre la baseline |
 | D-19 | Tests d'intégration Testcontainers | Prouve la chaîne réelle |
 | D-20 | REST interne : timeout 2 s, 2 essais, circuit breaker, cache 60 s | Analytics survit à l'arrêt de sensor-service |
+| D-21 | Moniteur live du stream : XREAD hors consumer group + `redis-cli --json` | Lecture seule (aucun ACK), impact nul sur pending/duplicatas des groupes (D-02/D-05) ; `--json` = parse robuste. `infra/linux/stream-watch.sh` |

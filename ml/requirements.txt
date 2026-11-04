@@ -2,6 +2,7 @@
 numpy
 pandas
 scikit-learn
-torch
+skl2onnx       # conversion du modèle sklearn (LinearRegression) vers ONNX (étape 5)
 onnx
 onnxruntime
+pymongo        # export_dataset.py : lecture de hourly_aggregates (MongoDB)

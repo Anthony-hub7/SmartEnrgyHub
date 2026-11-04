@@ -48,16 +48,8 @@
       <artifactId>spring-boot-starter-test</artifactId>
       <scope>test</scope>
     </dependency>
-    <dependency>
-      <groupId>org.testcontainers</groupId>
-      <artifactId>junit-jupiter</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.testcontainers</groupId>
-      <artifactId>cassandra</artifactId>
-      <scope>test</scope>
-    </dependency>
+    <!-- Tests d'integration branches sur la stack docker-compose (smartenergy-cassandra) :
+         aucun conteneur dedie, donc pas de dependance Testcontainers ici. -->
   </dependencies>
   <build>
     <finalName>app</finalName>

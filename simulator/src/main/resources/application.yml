@@ -7,6 +7,9 @@ spring:
 # Surcharge en ligne de commande, ex. :
 #   --smartenergy.simulator.sensors=10 --smartenergy.simulator.interval=PT1S
 #   --smartenergy.simulator.anomaly.sensor=SENSOR-003 --smartenergy.simulator.anomaly.at-seconds=60
+# Backfill (jeu de donnees, extension 9C) : horloge virtuelle [now - N j, now] envoyee en accéléré,
+# ex. : --smartenergy.simulator.backfill-days=30 --smartenergy.simulator.interval=PT5M
+#   (le collector doit accepter ces timestamps anciens : MEASUREMENT_MAX_AGE=P31D)
 smartenergy:
   simulator:
     target-url: http://localhost:8081
@@ -16,6 +19,8 @@ smartenergy:
     interval: PT2S
     duration: PT2M          # PT0S = sans fin
     seed: 42
+    backfill-days: 0        # 0 = temps reel ; > 0 = mode backfill (voir ci-dessus)
+    backfill-pace: 200.0    # ticks/s en mode backfill
     anomaly:
       sensor: ""            # ex. SENSOR-003 pour activer le pic
       at-seconds: 60

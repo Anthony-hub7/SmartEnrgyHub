@@ -25,6 +25,24 @@ infra\windows\se.cmd first-start
 
 Les opérations `reset` et `clean` suppriment les volumes et peuvent effacer les données. Vérifiez toujours la confirmation affichée avant de les lancer. `backup` / `restore` gèrent les volumes déclarés dans le script.
 
+## Moniteur live du stream (stream-watch)
+
+`stream-watch.sh` affiche en temps réel chaque mesure publiée dans le stream
+Redis (`energy-measurements`), plus un rappel XLEN / DLQ / pending / RAM toutes
+les 10 s. Décision D-21 : lecture par `XREAD BLOCK` **hors consumer group** —
+aucun ACK, impact nul sur les groupes `storage-group` / `analytics-group`
+(conforme D-02/D-05). Prérequis : `python3`, stack démarrée (conteneur
+Redis par défaut `smartenergy-hub-redis-1`).
+
+```bash
+./infra/linux/stream-watch.sh
+```
+
+Options utiles : `SE_REDIS_CONTAINER` / `SE_STREAM_KEY` / `SE_STATS_INTERVAL`
+en variables d'environnement. Le mot de passe Redis est lu dans `.env`
+(ENF-02), rien n'est codé en dur. En parallèle, lancez le simulateur pour
+alimenter le flux : `./infra/linux/se.sh sim` (Ctrl+C pour arrêter).
+
 ## Fichiers
 
 - `linux/se.sh` : script principal Bash.

@@ -22,12 +22,21 @@ Jackson : **pas de coercion** (`"3.72"` en chaîne est refusé).
 ## Déjà fait
 Application, propriétés, bean `Clock`, `application.yml`, `/api/health` + erreurs + `X-Request-Id` (platform-web), Dockerfile/Compose.
 
+**Étape 3 (CDC §11) — terminée le 2026-10-21** :
+- `validation/MeasurementTimeValidator` — 400 `MEASUREMENT_TOO_OLD` (> 24 h) / `MEASUREMENT_IN_FUTURE` (> 5 min) ; test unitaire des bornes exactes.
+- `stream/MeasurementPublisher` — `XADD` via `MeasurementEventCodec` avec `MAXLEN ~` ; 503 + `Retry-After: 5` si Redis KO ; compteurs Micrometer `energy_measurements_published_total` / `energy_measurement_publish`.
+- `web/MeasurementController` — `POST /api/measurements` → 202 + `X-Event-Id` ; log `sensorId/eventId/redisId`.
+- `web/BodySizeLimitFilter` + `config/FilterConfig` — 413 `PAYLOAD_TOO_LARGE` au-delà de 10 Ko (Content-Length ou chunked).
+- `CollectorIntegrationTest` (Testcontainers Redis) + `MeasurementTimeValidatorTest` — **24 tests verts**.
+
+Preuves : `preuves/tests/resultats-2026-10-21-collector.md`.
+
 ## À faire (dans l'ordre)
-1. `validation/MeasurementTimeValidator` — règles temporelles (étape 1)
-2. `stream/MeasurementPublisher` — `XADD` avec `MAXLEN ~`, 503 si Redis KO (étape 3)
-3. `web/MeasurementController` — 202 + `X-Event-Id` (étape 3)
-4. `web/BodySizeLimitFilter` — 413 (étape 12)
-5. `CollectorIntegrationTest` — scénarios 1, 2, 8, 9
+1. ~~`validation/MeasurementTimeValidator`~~ ✅
+2. ~~`stream/MeasurementPublisher`~~ ✅
+3. ~~`web/MeasurementController`~~ ✅
+4. ~~`web/BodySizeLimitFilter`~~ ✅
+5. ~~`CollectorIntegrationTest`~~ ✅ (scénarios 1, 2, 8, 9 + coercion + 413)
 
 ## Pièges
 - Ne **jamais** réécrire la sérialisation : `MeasurementEventCodec.toFields` est le contrat.

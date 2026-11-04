@@ -30,6 +30,13 @@ public record SimulatorProperties(
         @DefaultValue("0.0") double invalidRate,
         /** Part des mesures renvoyees une deuxieme fois (doublons). */
         @DefaultValue("0.0") double duplicateRate,
+        /** Mode backfill (jeu de donnees, extension 9C) : 0 = desactive (temps reel, comportement par defaut).
+         *  Si > 0, genere `backfillDays` jours d'historique avec une horloge VIRTUELLE (timestamps
+         *  allant de now - backfillDays a now) au rythme `backfillPace` ticks/s, sans attendre le
+         *  temps reel. Le collector doit accepter les timestamps anciens : MEASUREMENT_MAX_AGE. */
+        @DefaultValue("0") int backfillDays,
+        /** Nombre de ticks (envois) par seconde en mode backfill. */
+        @DefaultValue("200.0") double backfillPace,
         @DefaultValue Anomaly anomaly) {
 
     public record Anomaly(

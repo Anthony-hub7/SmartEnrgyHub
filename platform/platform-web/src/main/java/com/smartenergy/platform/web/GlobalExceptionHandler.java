@@ -16,6 +16,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
@@ -25,6 +26,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  * Les exceptions standard de Spring MVC (404, 405, 415, parametres...) passent par la classe de base
  * et sont enrichies dans {@link #handleExceptionInternal}.
  */
+@ControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);

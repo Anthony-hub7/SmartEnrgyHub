@@ -158,6 +158,7 @@ Linux, macOS, WSL, Git Bash :
 ./infra/linux/se.sh doctor
 ./infra/linux/se.sh first-start
 ./infra/linux/se.sh start --no-wait
+./infra/linux/stream-watch.sh   # vision du stream en direct (D-21, lecture seule)
 ```
 
 Windows (PowerShell / CMD) :
@@ -177,7 +178,10 @@ Test sans Docker réel : `bash infra/linux/tests/smoke-mock-docker.sh`.
 - [x] Simulateur Python + aperçu autonome (`preview_measurements.py`).
 - [x] Schéma Cassandra + jeux de données d'exemple.
 - [x] Documentation (`docs/`).
-- [ ] Contrôleurs/validation métier (Collector).
-- [ ] Consumer Redis + persistance (Storage).
-- [ ] Endpoints capteurs / historique / analytics (Analytics).
-- [ ] Tests T01–T14 et preuves.
+- [x] Contrôleurs/validation métier (Collector) — étape 3 terminée, tests verts + preuves (`preuves/tests/resultats-2026-10-21-collector.md`).
+- [x] Consumer Redis Streams (étape 4) — `AbstractStreamConsumer` : group, ACK, reprise, DLQ ; preuves (`preuves/tests/resultats-2026-10-26-stream.md`).
+- [x] Modélisation Cassandra (étape 5) — clé composite `(sensor_id, day)` + entités + repository + tests de lecture d'historique sur la stack de l'app ; preuves (`preuves/tests/resultats-2026-10-27-cassandra.md`).
+- [x] Persistance Cassandra (Storage, étape 7) : `CassandraMeasurementWriter` (idempotent, USING TIMESTAMP D-09, unset D-10, métriques) + `StorageStreamConsumer` branché ; critère CDC « mesure retrouvée dans Cassandra » prouvé (`preuves/tests/resultats-2026-10-27-storage-etape7.md`).
+- [x] API de lecture documentée (étape 8) — storage : historique paginé (curseur opaque, `from`/`to`, asc/desc) + `latest` cache-aside ; analytics : summary/daily-summary/anomalies/exceedances/forecast (alias D-17, 501 si IA off) ; Swagger `/v3/api-docs` + UI vérifiés sur services réels ; 25 tests verts (`preuves/tests/resultats-2026-10-27-api-etape8.md`).
+- [x] Analytics niveaux A et B (étape 9) — `AnalyticsRules` (pures : énergie formule 2 + plafond des trous, seuil strict 3, score z/Welford 4), `AggregateWriter` (micro-batch D-14, anomalies idempotentes `_id` déterministe), `AnalyticsStreamConsumer` (`analytics-group` : dédup, seuil, tri des timestamps, métrique) ; 24 tests analytics verts (41 au total), scénarios 4/8/11 OK, preuve croisée storage=analytics sur services réels (`preuves/tests/resultats-2026-10-30-analytics-etape9ab.md`). Niveau C : démarche dans `docs/forecast-niveau-c.md` (aucune IA tant que A/B non validés).
+- [ ] Tests T01–T14 et preuves (Collector T01–T04, T08-Redis, T09 ; stream T05/T06/T10 au niveau consumer).

@@ -20,6 +20,13 @@ __pycache__/
 venv/
 .pytest_cache/
 
+# Modeles IA et jeux de donnees (generes, non versionnes ; voir models/README.md)
+# Pour versionner un modele si le sujet l'exige : git add -f models/energy.onnx
+ml/data/
+*.onnx
+*.onnx.data
+ml/runs/
+
 # Docker / données locales
 *.log
 

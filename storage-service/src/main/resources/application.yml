@@ -8,6 +8,8 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:change-me}
+  # Prefixe "spring.cassandra" (Boot 3.5 : "spring.data.cassandra" est DEPRECIE depuis 3.4,
+  # le remplacement officiel est "spring.cassandra" — voir storage-service etape 5).
   cassandra:
     contact-points: ${CASSANDRA_HOST:localhost}:${CASSANDRA_PORT:9042}
     local-datacenter: ${CASSANDRA_DC:datacenter1}   # obligatoire ; "datacenter1" pour l'image officielle

@@ -22,12 +22,12 @@ Plage `[from, to)` ; `limit` 100 par défaut, 1000 max ; `nextCursor` opaque, `n
 Application, `application.yml` (Redis + Cassandra), schéma CQL + conteneur d'initialisation, healthchecks.
 
 ## À faire (dans l'ordre)
-1. `entity/MeasurementKey`, `MeasurementByDayEntity`, `LatestMeasurementEntity` — mapping Spring Data Cassandra (étape 5)
-2. `platform-stream/AbstractStreamConsumer` — boucle de consommation (étape 4) *(partagée avec analytics)*
-3. `service/CassandraMeasurementWriter` — 2 upserts idempotents, **sans null explicite** (étape 7)
-4. `stream/StorageStreamConsumer` — branche le writer sur la boucle (étape 7)
-5. `service/HistoryCursor`, `MeasurementQueryService`, `web/MeasurementQueryController` (étape 8)
-6. `StorageIntegrationTest` — scénarios 3, 5, 6, 8, 10
+1. ~~`entity/MeasurementKey`, `MeasurementByDayEntity`, `LatestMeasurementEntity`~~ ✅ mapping Spring Data Cassandra (étape 5)
+2. ~~`platform-stream/AbstractStreamConsumer`~~ ✅ boucle de consommation (étape 4) *(partagée avec analytics)*
+3. ~~`service/CassandraMeasurementWriter`~~ ✅ 2 upserts idempotents, **sans null explicite**, `USING TIMESTAMP` D-09 (étape 7)
+4. ~~`stream/StorageStreamConsumer`~~ ✅ branche le writer sur la boucle (étape 7)
+5. ~~`service/HistoryCursor`, `MeasurementQueryService`, `web/MeasurementQueryController`~~ ✅ routes GET, pagination curseur, cache-aside `latest`, OpenAPI (étape 8)
+6. `StorageIntegrationTest` — ✅ scénarios 5, 6, 8 (étape 7) + scénario 3 complet, `/latest`, 400, Swagger (étape 8) ; scénarios 10/11 = étape 11
 
 ## Pièges
 - **ACK après persistance** uniquement, sinon perte silencieuse.
@@ -36,4 +36,11 @@ Application, `application.yml` (Redis + Cassandra), schéma CQL + conteneur d'in
 - Cassandra met 1 à 2 minutes à démarrer (le Compose attend `cassandra-init`).
 
 ## Critère de validation (étape 7)
-Une mesure envoyée au collector est retrouvée via `GET /api/measurements/{id}` ; l'arrêt puis le redémarrage du service ne perd rien.
+Une mesure envoyée au collector est retrouvée dans Cassandra (prouvé au niveau base par
+`StorageIntegrationTest.critereValidation_*` : `XADD` → consumer → les deux tables → `pending=0`) ;
+l'arrêt puis le redémarrage du service ne perd rien (reprise, `lag=0`).
+
+## Critère de validation (étape 8 — ✅)
+Consultation depuis Swagger UI (`/swagger-ui.html`, vérifié sur service réel) : historique filtré
+`from`/`to`, paginé par curseur sur 2 pages, `latest` (200/404 + cache 30 s), paramètres invalides
+→ 400 Problem Details. Preuve : `preuves/tests/resultats-2026-10-27-api-etape8.md` (API p95 201 ms).

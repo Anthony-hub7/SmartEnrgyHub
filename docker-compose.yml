@@ -8,6 +8,7 @@ name: smartenergy-hub
 
 x-java-service: &java-service
   restart: unless-stopped
+  mem_limit: ${SPRING_MEM_LIMIT:-512m}
   healthcheck:
     test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health/readiness || exit 1"]
     interval: 15s
@@ -19,11 +20,17 @@ x-java-env: &java-env
   SPRING_PROFILES_ACTIVE: docker
   SERVER_PORT: "8080"
   LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
+  # Heap borne a 60% de la limite memoire du conteneur (SPRING_MEM_LIMIT, .env) + GC leger.
+  JAVA_OPTS: ${SPRING_JAVA_OPTS:--XX:MaxRAMPercentage=75}
 
 services:
   # ------------------------------------------------------------ infrastructure
+  # Limites memoire : cables ici depuis .env (mem_limit/docker compose) pour eviter qu'une
+  # base prenne toute la RAM de la machine de dev (voir bloc "Limites de ressources").
   redis:
     image: redis:7
+    mem_limit: ${REDIS_MEM_LIMIT:-256m}
+    mem_reservation: ${REDIS_MEM_RESERVATION:-96m}
     command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec",
               "--requirepass", "${REDIS_PASSWORD:?copiez .env.example vers .env}"]
     environment:
@@ -55,7 +62,7 @@ services:
       start_period: 20s
 
   cassandra:
-    image: cassandra:5
+    image: cassandra:4
     environment:
       CASSANDRA_CLUSTER_NAME: smartenergy
       MAX_HEAP_SIZE: ${CASSANDRA_MAX_HEAP:-512M}
@@ -71,7 +78,7 @@ services:
       start_period: 60s
 
   cassandra-init:
-    image: cassandra:5
+    image: cassandra:4
     depends_on:
       cassandra:
         condition: service_healthy
@@ -90,6 +97,10 @@ services:
       <<: *java-env
       REDIS_HOST: redis
       REDIS_PASSWORD: ${REDIS_PASSWORD}
+      # Regle CDC 5.2 : 24 h par defaut. Pour un backfill (simulateur en horloge virtuelle),
+      # surcharger temporairement : MEASUREMENT_MAX_AGE=P31D dans .env (voir simulator/README).
+      # Syntaxe ISO-8601 : P31D = 31 jours, PT24H = 24 h (PT31D est INVALIDE).
+      MEASUREMENT_MAX_AGE: ${MEASUREMENT_MAX_AGE:-PT24H}
     ports: ["8081:8080"]
     depends_on:
       redis: { condition: service_healthy }
@@ -121,6 +132,8 @@ services:
       MONGO_HOST: mongo
       MONGO_ANALYTICS_PASSWORD: ${MONGO_ANALYTICS_PASSWORD}
       SENSOR_SERVICE_URL: http://sensor-service:8080
+      # Prevision IA (extension 9C) : false = 501 FORECAST_DISABLED (defaut).
+      ANALYTICS_FORECAST_ENABLED: ${ANALYTICS_FORECAST_ENABLED:-false}
     volumes:
       - ./models:/app/models:ro
     ports: ["8083:8080"]
@@ -156,6 +169,10 @@ services:
       SMARTENERGY_SIMULATOR_INTERVAL: ${SIMULATOR_INTERVAL:-PT2S}
       SMARTENERGY_SIMULATOR_DURATION: ${SIMULATOR_DURATION:-PT2M}
       SMARTENERGY_SIMULATOR_REGISTER_SENSORS: "true"
+      # Backfill (jeu de donnees IA, extension 9C) : SIMULATOR_BACKFILL_DAYS=30 + interval PT5M
+      # + MEASUREMENT_MAX_AGE=P31D dans .env pour que le collector accepte les timestamps anciens.
+      SMARTENERGY_SIMULATOR_BACKFILL_DAYS: ${SIMULATOR_BACKFILL_DAYS:-0}
+      SMARTENERGY_SIMULATOR_BACKFILL_PACE: ${SIMULATOR_BACKFILL_PACE:-200}
     depends_on:
       collector-service: { condition: service_healthy }
       sensor-service: { condition: service_healthy }

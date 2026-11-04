@@ -19,4 +19,4 @@ ARG SERVICE
 COPY --from=build /workspace/${SERVICE}/target/app.jar app.jar
 USER app
 EXPOSE 8080
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "app.jar"]
+ENTRYPOINT ["sh", "-c", "exec java ${JAVA_OPTS:--XX:MaxRAMPercentage=75} -jar app.jar"]

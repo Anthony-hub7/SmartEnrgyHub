@@ -368,23 +368,30 @@ cmd_test() {
 }
 
 cmd_sim() {
-  local -a args=()
+  # Ce binaire docker-compose standalone ignore les args CLI passes apres le nom
+  # du service (prouve : rien dans les logs du conteneur, valeurs par defaut).
+  # On traduit donc les drapeaux en variables d'environnement SMARTENERGY_SIMULATOR_*
+  # (relaxed binding Spring : dash supprime + uppercase, ex. invalid-rate ->
+  # SMARTENERGY_SIMULATOR_INVALIDRATE, anomaly.atSeconds -> ..._ANOMALY_ATSECONDS).
+  local -a envs=()
   while (($#)); do
     case "$1" in
-      --anomaly) args+=(--smartenergy.simulator.anomaly.sensor=SENSOR-003);;
-      --anomaly=*) args+=("--smartenergy.simulator.anomaly.sensor=${1#--anomaly=}");;
-      --chaos) args+=(--smartenergy.simulator.invalid-rate=0.05 --smartenergy.simulator.duplicate-rate=0.02);;
-      --long) args+=(--smartenergy.simulator.duration=PT0S);;
-      --sensors) shift; args+=("--smartenergy.simulator.sensors=${1:-5}");;
-      --duration) shift; args+=("--smartenergy.simulator.duration=${1:-PT2M}");;
-      --interval) shift; args+=("--smartenergy.simulator.interval=${1:-PT2S}");;
-      *) args+=("$1");;
+      --anomaly) envs+=(-e SMARTENERGY_SIMULATOR_ANOMALY_SENSOR=SENSOR-003);;
+      --anomaly=*) envs+=(-e "SMARTENERGY_SIMULATOR_ANOMALY_SENSOR=${1#--anomaly=}");;
+      --chaos)
+        envs+=(-e SMARTENERGY_SIMULATOR_INVALIDRATE=0.05
+               -e SMARTENERGY_SIMULATOR_DUPLICATERATE=0.02);;
+      --long) envs+=(-e SMARTENERGY_SIMULATOR_DURATION=PT0S);;
+      --sensors) shift; envs+=(-e "SMARTENERGY_SIMULATOR_SENSORS=${1:-5}");;
+      --duration) shift; envs+=(-e "SMARTENERGY_SIMULATOR_DURATION=${1:-PT2M}");;
+      --interval) shift; envs+=(-e "SMARTENERGY_SIMULATOR_INTERVAL=${1:-PT2S}");;
+      *) warn "Option sim inconnue ignoree : $1 (soutenus : --anomaly[=SENSOR] --chaos --long --sensors N --duration ISO --interval ISO)";;
     esac
     shift
   done
   ensure_env
   info "Simulateur (Ctrl+C pour interrompre)"
-  dc run --rm simulator "${args[@]}"
+  dc run --rm "${envs[@]}" simulator
 }
 
 cmd_shell() {

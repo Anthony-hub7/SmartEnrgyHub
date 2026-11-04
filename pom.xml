@@ -24,6 +24,8 @@
     <!-- Hors BOM Spring Boot : a verifier a l'integration -->
     <springdoc.version>2.8.6</springdoc.version>
     <resilience4j.version>2.2.0</resilience4j.version>
+    <!-- Inférence ONNX du modele de prevision (extension 9C, CDC chapitre 18) -->
+    <djl.version>0.33.0</djl.version>
   </properties>
 
   <modules>
