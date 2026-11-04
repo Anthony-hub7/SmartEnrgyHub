@@ -57,6 +57,9 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <mainClass>com.smartenergy.storage.StorageApplication</mainClass>
+        </configuration>
       </plugin>
     </plugins>
   </build>

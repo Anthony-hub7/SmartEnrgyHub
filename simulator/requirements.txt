@@ -1,0 +1,4 @@
+# Simulateur Python - dependances
+
+Ce simulateur utilise uniquement la bibliothèque standard Python 3. Aucun package
+a installer via pip.

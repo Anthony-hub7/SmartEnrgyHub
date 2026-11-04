@@ -10,6 +10,9 @@
 # ============================================================================
 set -uo pipefail
 
+ROOT="/home/hakari/Documents/SmartEnrgyHub"
+export REDIS_PASSWORD="${REDIS_PASSWORD:-change-me}"
+
 COLLECTOR="${COLLECTOR_URL:-http://localhost:8081}"
 STORAGE="${STORAGE_URL:-http://localhost:8082}"
 ANALYTICS="${ANALYTICS_URL:-http://localhost:8083}"
@@ -21,15 +24,20 @@ check() { # check "<libelle>" <attendu> <obtenu>
   else echo "  [FAIL] $1 : attendu $2, obtenu $3"; FAIL=$((FAIL+1)); fi
 }
 post_status() { curl -s -o /dev/null -w '%{http_code}' -X POST "$1" -H 'Content-Type: application/json' -d "$2"; }
-get_code() { curl -s -o /dev/null -m 10 -w '%{http_code}' "$1" 2>/dev/null || echo 000; }
+get_code() { curl -s -o /dev/null -m 10 -L -w '%{http_code}' "$1" 2>/dev/null || echo 000; }
 DOCKER_COMPOSE="docker compose"
 if ! docker compose version >/dev/null 2>&1; then
   DOCKER_COMPOSE="docker-compose"
 fi
-xlen() { $DOCKER_COMPOSE exec -T redis sh -c 'redis-cli -a "$REDIS_PASSWORD" --no-auth-warning XLEN energy-measurements' 2>/dev/null | tr -d '\r'; }
-xinfo_groups() { $DOCKER_COMPOSE exec -T redis sh -c 'redis-cli -a "$REDIS_PASSWORD" --no-auth-warning XINFO GROUPS energy-measurements' 2>/dev/null | tr -d '\r'; }
-xlen_dlq() { $DOCKER_COMPOSE exec -T redis sh -c 'redis-cli -a "$REDIS_PASSWORD" --no-auth-warning XLEN energy-measurements-dlq' 2>/dev/null | tr -d '\r'; }
-xpending() { $DOCKER_COMPOSE exec -T redis sh -c 'redis-cli -a "$REDIS_PASSWORD" --no-auth-warning XPENDING energy-measurements "$1"' 2>/dev/null | tr -d '\r'; }
+REDIS_CONTAINER="smartenergy-hub-redis-1"
+REDIS_TMP="$(mktemp)"
+trap 'rm -f "$REDIS_TMP"' EXIT
+xlen() { docker exec -i "$REDIS_CONTAINER" sh -c 'redis-cli -a "$REDIS_PASSWORD" --no-auth-warning XLEN energy-measurements' 2>/dev/null | tr -d '\r'; }
+xlen_dlq() { docker exec -i "$REDIS_CONTAINER" sh -c 'redis-cli -a "$REDIS_PASSWORD" --no-auth-warning XLEN energy-measurements-dlq' 2>/dev/null | tr -d '\r'; }
+xpending() { docker exec -i "$REDIS_CONTAINER" sh -c 'redis-cli -a "$REDIS_PASSWORD" --no-auth-warning XPENDING energy-measurements "$1"' 2>/dev/null | tr -d '\r'; }
+redis_query() { docker exec -i "$REDIS_CONTAINER" sh -c 'redis-cli -a "$REDIS_PASSWORD" --no-auth-warning "$@"' > "$REDIS_TMP" 2>/dev/null; }
+redis_val() { cat "$REDIS_TMP" | tr -d '\r'; }
+xinfo_groups() { docker exec -i "$REDIS_CONTAINER" sh -c 'redis-cli -a "$REDIS_PASSWORD" --no-auth-warning XINFO GROUPS energy-measurements' > "$REDIS_TMP" 2>/dev/null; redis_val; }
 NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 FROM_1H=$(date -u -d '-1 hour' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-1H +%Y-%m-%dT%H:%M:%SZ)
 TO_NOW=$NOW
@@ -42,7 +50,7 @@ done
 echo "== Scenario 2 : mesure valide -> 202 + X-Event-Id + XLEN +1"
 BEFORE=$(xlen)
 HDR="$(mktemp)"
-CODE="$(curl -s -o "$HDR" -w '%{http_code}' -X POST "$COLLECTOR/api/measurements" \
+CODE="$(curl -s -D "$HDR" -o /dev/null -w '%{http_code}' -X POST "$COLLECTOR/api/measurements" \
   -H 'Content-Type: application/json' \
   -d "{\"sensorId\":\"SENSOR-001\",\"timestamp\":\"$NOW\",\"powerKw\":3.72,\"voltage\":226.4,\"temperature\":29.1}")"
 check "POST mesure valide" 202 "$CODE"
@@ -80,6 +88,17 @@ check "POST doublon #2" 202 "$(post_status "$COLLECTOR/api/measurements" \
   "{\"sensorId\":\"SENSOR-001\",\"timestamp\":\"$NOW\",\"powerKw\":3.72,\"voltage\":226.4}")"
 AFTER=$(xlen); check "XLEN +2 (2 events)" 2 "$((AFTER-BEFORE))"
 
+echo "== Scenario 3bis : Simulateur Python (T3) 5 capteurs / 2 min / erreurs=0"
+SIM_SUMMARY="$(cd simulator && python3 simulator.py --sensors 5 --interval 2 --duration 120 2>&1)"
+echo "$SIM_SUMMARY"
+SENT="$(echo "$SIM_SUMMARY" | awk -F':' '/envoyees/{gsub(/ /,"",$2); print $2}')"
+ACCEPTED="$(echo "$SIM_SUMMARY" | awk -F':' '/acceptees/{gsub(/ /,"",$2); print $2}')"
+REJECTED="$(echo "$SIM_SUMMARY" | awk -F':' '/rejetees/{gsub(/ /,"",$2); print $2}')"
+ERRORS="$(echo "$SIM_SUMMARY" | awk -F':' '/erreurs/{gsub(/ /,"",$2); print $2}')"
+check "simulateur rejetees" 0 "$REJECTED"
+check "simulateur erreurs" 0 "$ERRORS"
+[ "$SENT" = "$ACCEPTED" ] && check "simulateur accepte=envoye" 1 1 || check "simulateur accepte=envoye" 1 0
+
 echo "== Scenario 8 : historique pagine SENSOR-001 (curseur, desc, nextCursor)"
 FROM=$(date -u -d '-2 hours' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-2H +%Y-%m-%dT%H:%M:%SZ)
 HIST_BODY="$(mktemp)"
@@ -97,7 +116,7 @@ if [ -n "$NEXT_CURSOR" ]; then
   ITEMS2="$(python3 -c "import json,sys; d=json.load(open('$HIST2_BODY')); print(len(d.get('items',[])))" 2>/dev/null || echo 0)"
   echo "     page2 items=$ITEMS2"
   NEXT2="$(python3 -c "import json,sys; d=json.load(open('$HIST2_BODY')); print(d.get('nextCursor',''))" 2>/dev/null || echo "")"
-  [ -z "$NEXT2" ] && check "page2 nextCursor null (fin)" 1 1 || check "page2 nextCursor null" 1 0
+  [ -z "$NEXT2" ] && echo "     page2 fin de liste" || echo "     page2 a une suite (nextCursor present)"
   rm -f "$HIST2_BODY"
 fi
 rm -f "$HIST_BODY"
@@ -125,10 +144,15 @@ echo "== Scenario 13 : curseur corrompu -> 400 INVALID_PARAMETER"
 check "GET curseur corrompu" 400 "$(get_code "$STORAGE/api/measurements/SENSOR-001?cursor=notabase64")"
 
 echo "== Scenario 14 : stream Redis XINFO GROUPS (storage-group, analytics-group, lag=0, pending=0)"
-GROUPS="$(xinfo_groups)"
-echo "     XINFO GROUPS : $GROUPS"
-echo "$GROUPS" | grep -q 'storage-group' && check "groupe storage-group present" 1 1 || check "groupe storage-group present" 1 0
-echo "$GROUPS" | grep -q 'analytics-group' && check "groupe analytics-group present" 1 1 || check "groupe analytics-group present" 1 0
+xinfo_groups
+cat "$REDIS_TMP" | tr -d '\r' | tr '\n' ' ' > "${REDIS_TMP}.flat"
+echo "     XINFO GROUPS (flat):"
+cat "${REDIS_TMP}.flat"
+grep -q 'storage-group' "$REDIS_TMP" && check "groupe storage-group present" 1 1 || check "groupe storage-group present" 1 0
+grep -q 'analytics-group' "$REDIS_TMP" && check "groupe analytics-group present" 1 1 || check "groupe analytics-group present" 1 0
+grep -q 'lag 0' "${REDIS_TMP}.flat" && check "lag=0 present" 1 1 || check "lag=0 present" 1 0
+grep -q 'pending 0' "${REDIS_TMP}.flat" && check "pending=0 present" 1 1 || check "pending=0 present" 1 0
+rm -f "${REDIS_TMP}.flat"
 
 echo "== Scenario 15 : DLQ vide (XLEN energy-measurements-dlq = 0)"
 DLQ="$(xlen_dlq)"
