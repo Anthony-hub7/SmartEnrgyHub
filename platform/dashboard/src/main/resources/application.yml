@@ -1,0 +1,23 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: dashboard
+
+smartenergy:
+  dashboard:
+    collector-url: http://localhost:8081
+    storage-url: http://localhost:8082
+    analytics-url: http://localhost:8083
+    sensor-url: http://localhost:8084
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true

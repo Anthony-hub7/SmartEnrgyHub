@@ -1,0 +1,28 @@
+# Donnees Git et fichiers locaux sans impact sur les images
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+!.env.light.example
+
+# Artefacts Java recompiles dans chaque image via Maven
+**/target
+**/*.class
+**/*.jar
+**/*.war
+
+# Environnements et caches Python (notamment ml/.venv, potentiellement tres lourd)
+**/.venv
+**/venv
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+
+# IDE et systeme
+**/.idea
+**/.vscode
+**/.DS_Store
+**/Thumbs.db
+*.log

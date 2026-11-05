@@ -9,8 +9,8 @@ ROOT_HOST="$(cd "$ROOT" && pwd -W 2>/dev/null || printf '%s' "$ROOT")"
 cd "$ROOT" || exit 1
 
 PROJECT="smartenergy-hub"
-APP_SERVICES=(sensor-service collector-service storage-service analytics-service)
-ALL_READY=(redis mongo cassandra cassandra-init sensor-service collector-service storage-service analytics-service)
+APP_SERVICES=(sensor-service collector-service storage-service analytics-service dashboard)
+ALL_READY=(redis mongo cassandra cassandra-init sensor-service collector-service storage-service analytics-service dashboard)
 DEFAULT_TIMEOUT=420
 VOLUMES=(redis_data mongo_data cassandra_data)
 
@@ -34,13 +34,14 @@ svc_port() {
     storage-service)   printf '8082';;
     analytics-service) printf '8083';;
     sensor-service)    printf '8084';;
+    dashboard) printf '8085';;
     *) printf ''; ;;
   esac
 }
 
 is_known_service() {
   case "$1" in
-    redis|mongo|cassandra|cassandra-init|sensor-service|collector-service|storage-service|analytics-service|simulator) return 0;;
+    redis|mongo|cassandra|cassandra-init|sensor-service|collector-service|storage-service|analytics-service|dashboard|simulator) return 0;;
     *) return 1;;
   esac
 }
@@ -113,6 +114,7 @@ print_urls() {
   storage-service       http://localhost:8082    http://localhost:8082/swagger-ui.html
   analytics-service     http://localhost:8083    http://localhost:8083/swagger-ui.html
   sensor-service        http://localhost:8084    http://localhost:8084/swagger-ui.html
+  dashboard             http://localhost:8085
 
   Sante : /api/health  |  Detail : /actuator/health/readiness  |  Metriques : /actuator/prometheus
 URLS
@@ -178,7 +180,7 @@ cmd_doctor() {
     warnings=$((warnings + 1))
   fi
   if have docker && [[ -z "$(dc ps -q 2>/dev/null)" ]]; then
-    for port in 6379 27017 9042 8081 8082 8083 8084; do
+    for port in 6379 27017 9042 8081 8082 8083 8084 8085; do
       if port_in_use "$port"; then warn "le port $port est deja utilise sur cette machine (conflit probable)"; warnings=$((warnings + 1)); fi
     done
   fi

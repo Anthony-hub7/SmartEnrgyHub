@@ -142,9 +142,9 @@ Les services lisent des variables d'environnement (ENF-02). Aucun secret réel n
 ## 8. Périmètre / hors périmètre
 
 **Inclus** : simulateur, Collector, Redis Streams, Storage, Cassandra, MongoDB,
-Analytics/API, OpenAPI, Docker Compose, tests.
+Analytics/API, tableau de bord HTML/JavaScript, OpenAPI, Docker Compose, tests.
 
-**Exclu du MVP** : prévision IA, dashboard web, API Gateway, JWT, alertes externes,
+**Exclu du MVP** : prévision IA, API Gateway, JWT, alertes externes,
 Kafka/Spark, Kubernetes, Prometheus/Grafana.
 
 ## 9. Outils infra (cycle de vie)

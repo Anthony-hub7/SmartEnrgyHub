@@ -36,6 +36,7 @@
     <module>contracts/analytics-contracts</module>
     <module>platform/platform-web</module>
     <module>platform/platform-stream</module>
+    <module>platform/dashboard</module>
     <module>collector-service</module>
     <module>storage-service</module>
     <module>sensor-service</module>

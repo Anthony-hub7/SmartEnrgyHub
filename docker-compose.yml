@@ -92,7 +92,9 @@ services:
     <<: *java-service
     build:
       context: .
-      args: { SERVICE: collector-service }
+      args: { SERVICE: ./collector-service }
+      cache_from:
+        - maven:3.9-eclipse-temurin-17
     environment:
       <<: *java-env
       REDIS_HOST: redis
@@ -109,7 +111,9 @@ services:
     <<: *java-service
     build:
       context: .
-      args: { SERVICE: storage-service }
+      args: { SERVICE: ./storage-service }
+      cache_from:
+        - maven:3.9-eclipse-temurin-17
     environment:
       <<: *java-env
       REDIS_HOST: redis
@@ -124,7 +128,9 @@ services:
     <<: *java-service
     build:
       context: .
-      args: { SERVICE: analytics-service }
+      args: { SERVICE: ./analytics-service }
+      cache_from:
+        - maven:3.9-eclipse-temurin-17
     environment:
       <<: *java-env
       REDIS_HOST: redis
@@ -146,7 +152,9 @@ services:
     <<: *java-service
     build:
       context: .
-      args: { SERVICE: sensor-service }
+      args: { SERVICE: ./sensor-service }
+      cache_from:
+        - maven:3.9-eclipse-temurin-17
     environment:
       <<: *java-env
       MONGO_HOST: mongo
@@ -160,7 +168,9 @@ services:
     profiles: ["tools"]
     build:
       context: .
-      args: { SERVICE: simulator }
+      args: { SERVICE: ./simulator }
+      cache_from:
+        - maven:3.9-eclipse-temurin-17
     restart: "no"
     environment:
       SMARTENERGY_SIMULATOR_TARGET_URL: http://collector-service:8080
@@ -176,6 +186,29 @@ services:
     depends_on:
       collector-service: { condition: service_healthy }
       sensor-service: { condition: service_healthy }
+
+  # ------------------------------------------------------------ dashboard web (HTML/JavaScript, port 8085)
+  dashboard:
+    <<: *java-service
+    build:
+      context: .
+      args: { SERVICE: ./platform/dashboard }
+      cache_from:
+        - maven:3.9-eclipse-temurin-17
+    environment:
+      <<: *java-env
+      SERVER_PORT: "8080"
+      # URLs des services applicatifs (noms DNS Docker Compose, port conteneur 8080)
+      SMARTENERGY_DASHBOARD_COLLECTOR_URL: http://collector-service:8080
+      SMARTENERGY_DASHBOARD_STORAGE_URL: http://storage-service:8080
+      SMARTENERGY_DASHBOARD_ANALYTICS_URL: http://analytics-service:8080
+      SMARTENERGY_DASHBOARD_SENSOR_URL: http://sensor-service:8080
+    ports: ["8085:8080"]
+    depends_on:
+      collector-service: { condition: service_started }
+      storage-service: { condition: service_started }
+      analytics-service: { condition: service_started }
+      sensor-service: { condition: service_started }
 
 volumes:
   redis_data:

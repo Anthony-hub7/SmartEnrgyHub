@@ -1,12 +1,10 @@
-# syntax=docker/dockerfile:1
 # Dockerfile UNIQUE pour tous les services : docker build --build-arg SERVICE=collector-service .
 # Etape 1 : build Maven du service et de ses modules internes (-am), sans Maven local necessaire.
 FROM maven:3.9-eclipse-temurin-17 AS build
 WORKDIR /workspace
 COPY . .
 ARG SERVICE
-RUN --mount=type=cache,target=/root/.m2 \
-    mvn -B -q -pl ${SERVICE} -am package -Dmaven.test.skip=true
+RUN mvn -B -q -pl ${SERVICE} -am package -Dmaven.test.skip=true
 
 # Etape 2 : image d'execution minimale, utilisateur non root
 FROM eclipse-temurin:17-jre
